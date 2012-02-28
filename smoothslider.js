@@ -1,31 +1,7 @@
 // ----------------- BEGIN SmoothSlider functions -----------------
 SmoothSlider = function() {}
-
-SmoothSlider.generateValue = function(range, step, note)
-{
-    var steps = (range / step).toFixed(0);
-    var left = (((128-1)/2).toFixed(0) % steps) - 2;
-    var stepfull = (64 - (left/2));
-    var pos = (note - 64);
-    var tpos = (pos > 0 ? (pos - (left/2)) : (pos + left/2)).toFixed(0);
-    var ratio = (stepfull / steps).toFixed(0);
-    
-    
-    //print("POS = " + pos + " STEPS = " + steps + " LEFT = " + left + " FULL = " + stepfull);
-    //print("STEPFULL = " + stepfull + " STEPS = " + steps + " RATIO = " + (stepfull / steps).toFixed(0));
-    //print("TEST = " + tpos % (stepfull / steps).toFixed(0));
-    print("TPOS = " + tpos + " STEPFULL = " + stepfull + " STEP = " + step + " RATIO " + ratio);
-    
-    //if ( pos == -63
-    if (Math.abs(pos)  <= (left/2))
-        return 0;
-    else if ( pos > 0 )
-    {
-        return (tpos / stepfull) * (step / ratio);
-    }
-    else
-        return (tpos * step).toFixed(2);
-}
+SmoothSlider.Step = 0.5;
+SmoothSlider.Steps = 511;
 
 SmoothSlider.generateTable = function(mrange, step)
 {
@@ -33,30 +9,31 @@ SmoothSlider.generateTable = function(mrange, step)
 	if (( range % 10 ) && (range != 8))
 		range += ( range - (range % 10 ));
 	
-	
 	print("GENERATING TABLE FOR: " + range + " => " + step);
 	
 	SmoothSlider.Range = range;
-    
+
 	// Clear Table with NaN's
-	for (var i = 0; i <= 127; i++)
+	for (var i = 0; i <= SmoothSlider.Steps; i++)
 		SmoothSlider.sliderTable[i] = NaN;
 	
 	
-	var steps = (range / step).toFixed(0);
-	var pos = ((127-1)/2-1);
-	var left = pos % steps;
-	var steps = (pos / steps).toFixed(0);
+	var stepings = (range / step).toFixed(0);
+	var pos = ((SmoothSlider.Steps-1)/2-1);
+	var left = pos % stepings;
+	var steps = (pos / stepings).toFixed(0);
 	
 	
 	if ( steps <= 0 ) {
 		print('Not Enough MIDI Steps...');
 		return;
 	}
+	else {
+		print("Steps = " + SmoothSlider.Steps + " stepings = " + steps + " steps=" + steps + " left=" + left);
+	}
 	
-	for (var i = 0; i <= 127; i++) {
+	for (var i = 0; i <= SmoothSlider.Steps; i++) {
 		var q = (i - pos - 1);
-		/*
 		var perc;
 		
 		
@@ -76,28 +53,34 @@ SmoothSlider.generateTable = function(mrange, step)
 			perc = -range;
 		else if ( perc > range )
 			perc = range;
-		*/
-		SmoothSlider.sliderTable[i] = SmoothSlider.generateValue(range, step, i);
+		
+		SmoothSlider.sliderTable[i] = perc;
 	}
 	
 }
 
-SmoothSlider.regenerateTable = function()
+SmoothSlider.regenerateTable = function(value)
 {
-	SmoothSlider.generateTable(engine.getValue("[Channel1]", "rateRange"), 0.7);
+	SmoothSlider.generateTable(value, SmoothSlider.Step);
 }
 
 SmoothSlider.init = function(id)
 {
 	// Generated externally
 	SmoothSlider.sliderTable = new Array();
-	SmoothSlider.generateTable(engine.getValue("[Channel1]", "rateRange"), 0.7);
+	SmoothSlider.generateTable(engine.getValue("[Channel1]", "rateRange"), SmoothSlider.Step);
 	
 	engine.connectControl("[Channel1]","rateRange","SmoothSlider.regenerateTable");
 }
 
 SmoothSlider.shutdown = function()
 {
+}
+
+SmoothSlider.smooth = function(value)
+{
+	print("VALUE=" + value + " TABLE=" + SmoothSlider.sliderTable[value] + " RATE=" + SmoothSlider.sliderTable[value]);
+	return SmoothSlider.sliderTable[value] / SmoothSlider.Range;
 }
 
 SmoothSlider.pitchShift = function(channel, control, value, status, group)
@@ -120,12 +103,22 @@ SmoothSlider.pitchShift = function(channel, control, value, status, group)
 
 // ----------------- END SmoothSlider functions -------------------
 
-if ( typeof engine == 'undefined' ) {
-    SmoothSlider.sliderTable = new Array();
-    SmoothSlider.generateTable(0.10, 0.7);
-    
-    for (var i = 0; i < 64; i+=2) {
-        print("Pitch[" + i + "] = " + SmoothSlider.sliderTable[i]);
-    }
+if (typeof print != 'function') {
+	print = function(str) { console.log(str); }
+	
+	engine = function() {}
+	engine.connectControl = function() {
+		
+	};
+	engine.getValue = function() {
+		return 0.1;
+	};
+	
+	SmoothSlider.init();
+	
+	for (var i = 0; i < SmoothSlider.sliderTable.length; i++) {
+		print("PITCH["+i+"] = " + SmoothSlider.sliderTable[i]);
+	}
+	
+	print(JSON.stringify(SmoothSlider.sliderTable));
 }
-
